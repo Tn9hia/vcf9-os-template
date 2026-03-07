@@ -33,33 +33,8 @@ rm -f /etc/ssh/ssh_host_*
 rm -f /root/.ssh/authorized_keys
 rm -f /home/*/.ssh/authorized_keys
 
-# Setup network
-echo "[6] Setup network..."
-
-echo "Deleting old connection..."
-nmcli connection delete "$CONNECTION_NAME" 2>/dev/null || true
-
-echo "Creating new connection with new UUID..."
-nmcli connection add type ethernet con-name "$CONNECTION_NAME" ifname "$INTERFACE"
-
-echo "Configuring network settings..."
-nmcli connection modify "$CONNECTION_NAME" ipv4.method auto
-nmcli connection modify "$CONNECTION_NAME" ipv6.method ignore  
-nmcli connection modify "$CONNECTION_NAME" connection.autoconnect yes
-
-# Remove cloned MAC address (if any)
-nmcli connection modify "$CONNECTION_NAME" 802-3-ethernet.cloned-mac-address ""
-
-echo "[7] Cleaning up lease files and udev rules..."
-rm -f /var/lib/NetworkManager/*.lease
-rm -f /etc/udev/rules.d/70-persistent-net.rules
-
-echo "[8] Restarting NetworkManager..."
-systemctl enable NetworkManager
-systemctl restart NetworkManager
-
 # Auto resize partition on first boot
-echo "[9] Auto resize partition on first boot..."
+echo "[6] Auto resize partition on first boot..."
 cat <<'EOF' > /usr/local/bin/arp.sh
 #!/bin/bash
 echo "1" >/sys/class/block/sda/device/rescan
@@ -93,11 +68,41 @@ EOF
 systemctl enable arp-resize.service
 
 # Setup cloud-init
-echo "[10] Setup cloud-init..."
-dnf install -y epel-release
+echo "[7] Setup cloud-init..."
 dnf install -y cloud-init
-cloud-init clean
 
+systemctl enable cloud-init-local.service
+systemctl enable cloud-init.service
+systemctl enable cloud-config.service
+systemctl enable cloud-final.service
+
+cloud-init clean --logs
+
+# Setup network
+echo "[8] Setup network..."
+
+echo "Deleting old connection..."
+nmcli connection delete "$CONNECTION_NAME" 2>/dev/null || true
+
+echo "Creating new connection with new UUID..."
+nmcli connection add type ethernet con-name "$CONNECTION_NAME" ifname "$INTERFACE"
+
+echo "Configuring network settings..."
+nmcli connection modify "$CONNECTION_NAME" ipv4.method auto
+nmcli connection modify "$CONNECTION_NAME" ipv6.method ignore  
+nmcli connection modify "$CONNECTION_NAME" connection.autoconnect yes
+
+# Remove cloned MAC address (if any)
+nmcli connection modify "$CONNECTION_NAME" 802-3-ethernet.cloned-mac-address ""
+
+echo "[9] Cleaning up lease files and udev rules..."
+rm -f /var/lib/NetworkManager/*.lease
+rm -f /etc/udev/rules.d/70-persistent-net.rules
+
+echo "[10] Restarting NetworkManager..."
+systemctl enable NetworkManager
+systemctl restart NetworkManager
+g
 # Clear machine_id
 echo "[11] Clear machine ID..."
 truncate -s 0 /etc/machine-id
