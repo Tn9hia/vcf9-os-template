@@ -8,34 +8,33 @@ set -e
 INTERFACE="ens192"
 CONNECTION_NAME="ens192"
 
-# update system
+# Update system
 echo "[1] Auto update packages..."
 dnf update -y && dnf upgrade -y && dnf autoremove -y
 
 echo "[2] Set hostname to default..."
 hostnamectl set-hostname localhost
 
-# set timezone
+# Set timezone
 echo "[3] Set timezone to Asia/Ho_Chi_Minh..."
 timedatectl set-timezone Asia/Ho_Chi_Minh
 
-# install necessary package
+# Install VMware Tools
 echo "[4] Install VMware Tools..."
 dnf install -y perl open-vm-tools cloud-utils-growpart
 sudo systemctl enable --now vmtoolsd.service
 
-# Setup cloud-init
-echo "[5] Setup cloud-init..."
-dnf install -y epel-release
-dnf install -y cloud-init
-cloud-init clean
-
-# set password policy
-echo "[6] Set password policy..."
+# Set password policy
+echo "[5] Set password policy..."
 sed -i 's|^password\s\+requisite\s\+pam_pwquality.so.*|password    requisite     pam_pwquality.so try_first_pass local_users_only retry=3 authtok_type= minlen=8 ucredit=-1 lcredit=-1 dcredit=-1 ocredit=-1 enforce_for_root|' /etc/pam.d/system-auth
 
-# setup network
-echo "[7] Setup network..."
+# SSH clean keys
+rm -f /etc/ssh/ssh_host_*
+rm -f /root/.ssh/authorized_keys
+rm -f /home/*/.ssh/authorized_keys
+
+# Setup network
+echo "[6] Setup network..."
 
 echo "Deleting old connection..."
 nmcli connection delete "$CONNECTION_NAME" 2>/dev/null || true
@@ -48,18 +47,19 @@ nmcli connection modify "$CONNECTION_NAME" ipv4.method auto
 nmcli connection modify "$CONNECTION_NAME" ipv6.method ignore  
 nmcli connection modify "$CONNECTION_NAME" connection.autoconnect yes
 
-# Xóa cloned MAC address (nếu có)
+# Remove cloned MAC address (if any)
 nmcli connection modify "$CONNECTION_NAME" 802-3-ethernet.cloned-mac-address ""
 
-echo "Cleaning up lease files and udev rules..."
+echo "[7] Cleaning up lease files and udev rules..."
 rm -f /var/lib/NetworkManager/*.lease
 rm -f /etc/udev/rules.d/70-persistent-net.rules
 
-echo "Restarting NetworkManager..."
+echo "[8] Restarting NetworkManager..."
 systemctl enable NetworkManager
 systemctl restart NetworkManager
 
-# script resize
+# Auto resize partition on first boot
+echo "[9] Auto resize partition on first boot..."
 cat <<'EOF' > /usr/local/bin/arp.sh
 #!/bin/bash
 echo "1" >/sys/class/block/sda/device/rescan
@@ -75,7 +75,7 @@ EOF
 
 chmod +x /usr/local/bin/arp.sh
 
-# create systemd unit file
+# Create systemd unit file
 cat <<'EOF' > /etc/systemd/system/arp-resize.service
 [Unit]
 Description=Auto resize partition on boot
@@ -92,20 +92,26 @@ EOF
 
 systemctl enable arp-resize.service
 
-# clear machine_id
-echo "[8] Clear machine ID..."
+# Setup cloud-init
+echo "[10] Setup cloud-init..."
+dnf install -y epel-release
+dnf install -y cloud-init
+cloud-init clean
+
+# Clear machine_id
+echo "[11] Clear machine ID..."
 truncate -s 0 /etc/machine-id
 rm -f /var/lib/dbus/machine-id
 ln -s /etc/machine-id /var/lib/dbus/machine-id
 
-# clear logs
-echo "[9] Clear logs..."
+# Clear logs	
+echo "[12] Clear logs..."
 journalctl --rotate
 journalctl --vacuum-time=1s
 rm -f ~/.bash_history
 history -c
 
-echo "[10] Done. Self-destructing..."
+echo "[13] Done. Self-destructing..."
 echo "AlmaLinux VM template customization completed. \n you should now run "history -c", remove the script, shut down the VM and convert it to a template."
 
 shred -u "$0"
