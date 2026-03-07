@@ -1,0 +1,10 @@
+- [ ] Log clean up, no history, no bash_history, no wtmp, no journalctl
+- [ ] Get static IP address, be able to connect to the internetn (ping google.com)
+- [ ] VMware tool installed and running 
+- [ ] SSH/RDP is enabled and accessible
+- [ ] Reboot VM and check if it can get IP address and SSH/RDP is still accessible
+- [ ] Disk size is expanded to the size of the virtual disk and disk is using LVM
+- [ ] Swap is disabled
+- [ ] Default timezone set to Asia/Ho_Chi_Minh
+- [ ] Hostname change based on cloud-init
+- [ ] SSH clean keys
