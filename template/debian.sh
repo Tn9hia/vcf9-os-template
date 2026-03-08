@@ -93,7 +93,7 @@ sed -i '/^After=/ s/$/ vmtoolsd.service open-vm-tools.service/' "$SERVICE_FILE"
 # Setup cloud-init
 echo "[5] Setup cloud-init..."
 apt install -y cloud-init
-cloud-init clean
+cloud-init clean --logs --configs all --machine-id
 
 rm -f /run/systemd/network/*.lease
 rm -f /var/lib/systemd/network/*.lease

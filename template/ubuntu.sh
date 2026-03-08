@@ -94,7 +94,7 @@ history -c
 
 # Setup cloud-init
 echo "[13] Setup cloud-init..."
-cloud-init clean
+cloud-init clean --logs --configs all --machine-id
 
 echo "[14] Done. Self-destructing..."
 

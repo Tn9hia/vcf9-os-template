@@ -76,7 +76,7 @@ systemctl enable cloud-init.service
 systemctl enable cloud-config.service
 systemctl enable cloud-final.service
 
-cloud-init clean --logs
+cloud-init clean --logs --configs all --machine-id
 
 # Setup network
 echo "[8] Setup network..."
@@ -102,7 +102,7 @@ rm -f /etc/udev/rules.d/70-persistent-net.rules
 echo "[10] Restarting NetworkManager..."
 systemctl enable NetworkManager
 systemctl restart NetworkManager
-g
+
 # Clear machine_id
 echo "[11] Clear machine ID..."
 truncate -s 0 /etc/machine-id
