@@ -1,7 +1,7 @@
 #!/bin/bash
 # Script chuẩn hóa VM AlmaLinux 8,9,10 cho template
 # WARNING: Script này sẽ thay đổi nhiều cấu hình hệ thống
-# Change interface name if needed
+# Thay đổi interface name nếu cần
 
 set -e
 
@@ -10,28 +10,26 @@ CONNECTION_NAME="ens192"
 
 # Update system
 echo "[1] Auto update packages..."
-dnf update -y && dnf upgrade -y && dnf autoremove -y
+dnf update -y && dnf upgrade -y 
+dnf install -y perl open-vm-tools cloud-utils-growpart cloud-init && dnf autoremove -y
+package-cleanup --oldkernels --count=2
 
+# Enable necessary service
+systemctl enable --now vmtoolsd.service
+
+# Setup enviroment information
 echo "[2] Set hostname to default..."
 hostnamectl set-hostname localhost
 
-# Set timezone
 echo "[3] Set timezone to Asia/Ho_Chi_Minh..."
 timedatectl set-timezone Asia/Ho_Chi_Minh
 
-# Install VMware Tools
-echo "[4] Install VMware Tools..."
-dnf install -y perl open-vm-tools cloud-utils-growpart
-sudo systemctl enable --now vmtoolsd.service
+# echo "[4] Set Root password to expire..."
+# passwd --expire root
 
-# Set password policy
+# Set strong password policy
 echo "[5] Set password policy..."
 sed -i 's|^password\s\+requisite\s\+pam_pwquality.so.*|password    requisite     pam_pwquality.so try_first_pass local_users_only retry=3 authtok_type= minlen=8 ucredit=-1 lcredit=-1 dcredit=-1 ocredit=-1 enforce_for_root|' /etc/pam.d/system-auth
-
-# SSH clean keys
-rm -f /etc/ssh/ssh_host_*
-rm -f /root/.ssh/authorized_keys
-rm -f /home/*/.ssh/authorized_keys
 
 # Auto resize partition on first boot
 echo "[6] Auto resize partition on first boot..."
@@ -67,16 +65,42 @@ EOF
 
 systemctl enable arp-resize.service
 
-# Setup cloud-init
-echo "[7] Setup cloud-init..."
-dnf install -y cloud-init
+# Enable SSH for root
+# echo "[7] Enable SSH for root (Deprecated) ..."
+# apt install -y openssh-server
+# systemctl enable ssh
+# systemctl start ssh
+# sed -i 's/^#*PermitRootLogin .*/PermitRootLogin yes/' /etc/ssh/sshd_config
+# systemctl restart ssh
 
-systemctl enable cloud-init-local.service
+# SSH clean keys
+echo "[8] SSH clean keys..."
+rm -f /etc/ssh/ssh_host_*
+rm -f /root/.ssh/authorized_keys
+rm -f /home/*/.ssh/authorized_keys
+
+# Clear logs	
+echo "[12] Clear logs..."
+journalctl --rotate
+journalctl --vacuum-time=1s
+rm -f ~/.bash_history
+history -c
+
+# Enable cloud-init
+echo "[11] Enable cloud-init..."
+rm /etc/cloud/cloud-init.disabled
+
+echo "[12] Add vmware datasource..."
+echo "datasource_list: [ VMware, OVF, None ]" > /etc/cloud/cloud.cfg.d/98-vmware.cfg
+
+echo "[13] Enable cloud-init services..."
 systemctl enable cloud-init.service
+systemctl enable cloud-init-local.service
 systemctl enable cloud-config.service
 systemctl enable cloud-final.service
 
 cloud-init clean --logs --configs all --machine-id
+echo "policy: auto" >  /etc/cloud/ds-identify.cfg
 
 # Setup network
 echo "[8] Setup network..."
@@ -102,19 +126,6 @@ rm -f /etc/udev/rules.d/70-persistent-net.rules
 echo "[10] Restarting NetworkManager..."
 systemctl enable NetworkManager
 systemctl restart NetworkManager
-
-# Clear machine_id
-echo "[11] Clear machine ID..."
-truncate -s 0 /etc/machine-id
-rm -f /var/lib/dbus/machine-id
-ln -s /etc/machine-id /var/lib/dbus/machine-id
-
-# Clear logs	
-echo "[12] Clear logs..."
-journalctl --rotate
-journalctl --vacuum-time=1s
-rm -f ~/.bash_history
-history -c
 
 echo "[13] Done. Self-destructing..."
 echo "AlmaLinux VM template customization completed. \n you should now run "history -c", remove the script, shut down the VM and convert it to a template."
