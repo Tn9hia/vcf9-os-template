@@ -12,7 +12,7 @@ CONNECTION_NAME="ens192"
 echo "[1] Auto update packages..."
 dnf update -y && dnf upgrade -y 
 dnf install -y perl open-vm-tools cloud-utils-growpart cloud-init && dnf autoremove -y
-package-cleanup --oldkernels --count=2
+# package-cleanup --oldkernels --count=2
 
 # Enable necessary service
 systemctl enable --now vmtoolsd.service
@@ -28,11 +28,11 @@ timedatectl set-timezone Asia/Ho_Chi_Minh
 # passwd --expire root
 
 # Set strong password policy
-echo "[5] Set password policy..."
+echo "[4] Set password policy..."
 sed -i 's|^password\s\+requisite\s\+pam_pwquality.so.*|password    requisite     pam_pwquality.so try_first_pass local_users_only retry=3 authtok_type= minlen=8 ucredit=-1 lcredit=-1 dcredit=-1 ocredit=-1 enforce_for_root|' /etc/pam.d/system-auth
 
 # Auto resize partition on first boot
-echo "[6] Auto resize partition on first boot..."
+echo "[5] Auto resize partition on first boot..."
 cat <<'EOF' > /usr/local/bin/arp.sh
 #!/bin/bash
 echo "1" >/sys/class/block/sda/device/rescan
@@ -74,26 +74,26 @@ systemctl enable arp-resize.service
 # systemctl restart ssh
 
 # SSH clean keys
-echo "[8] SSH clean keys..."
+echo "[6] SSH clean keys..."
 rm -f /etc/ssh/ssh_host_*
 rm -f /root/.ssh/authorized_keys
 rm -f /home/*/.ssh/authorized_keys
 
 # Clear logs	
-echo "[12] Clear logs..."
+echo "[7] Clear logs..."
 journalctl --rotate
 journalctl --vacuum-time=1s
 rm -f ~/.bash_history
 history -c
 
 # Enable cloud-init
-echo "[11] Enable cloud-init..."
-rm /etc/cloud/cloud-init.disabled
+echo "[8] Enable cloud-init..."
+rm /etc/cloud/cloud-init.disabled || true
 
-echo "[12] Add vmware datasource..."
+echo "[9] Add vmware datasource..."
 echo "datasource_list: [ VMware, OVF, None ]" > /etc/cloud/cloud.cfg.d/98-vmware.cfg
 
-echo "[13] Enable cloud-init services..."
+echo "[10] Enable cloud-init services..."
 systemctl enable cloud-init.service
 systemctl enable cloud-init-local.service
 systemctl enable cloud-config.service
@@ -103,7 +103,7 @@ cloud-init clean --logs --configs all --machine-id
 echo "policy: auto" >  /etc/cloud/ds-identify.cfg
 
 # Setup network
-echo "[8] Setup network..."
+echo "[11] Setup network..."
 
 echo "Deleting old connection..."
 nmcli connection delete "$CONNECTION_NAME" 2>/dev/null || true
@@ -119,15 +119,15 @@ nmcli connection modify "$CONNECTION_NAME" connection.autoconnect yes
 # Remove cloned MAC address (if any)
 nmcli connection modify "$CONNECTION_NAME" 802-3-ethernet.cloned-mac-address ""
 
-echo "[9] Cleaning up lease files and udev rules..."
+echo "[12] Cleaning up lease files and udev rules..."
 rm -f /var/lib/NetworkManager/*.lease
 rm -f /etc/udev/rules.d/70-persistent-net.rules
 
-echo "[10] Restarting NetworkManager..."
+echo "[13] Restarting NetworkManager..."
 systemctl enable NetworkManager
 systemctl restart NetworkManager
 
-echo "[13] Done. Self-destructing..."
+echo "[14] Done. Self-destructing..."
 echo "AlmaLinux VM template customization completed. \n you should now run "history -c", remove the script, shut down the VM and convert it to a template."
 
 shred -u "$0"
